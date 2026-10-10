@@ -1,0 +1,11 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+physical shift press
+app: key pressed: 42
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+virtual keyboard destroyed
+physical shift release
+app: key released: 42
+app: modifiers: depressed=0, latched=0, locked=0, group=0

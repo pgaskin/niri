@@ -2,6 +2,8 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write as _;
+use std::net::Shutdown;
+use std::os::unix::fs::FileExt as _;
 use std::os::unix::net::UnixStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -24,6 +26,11 @@ use smithay::reexports::wayland_protocols_wlr::layer_shell::v1::client::zwlr_lay
 use smithay::reexports::wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1::{
     self, ZwlrLayerSurfaceV1,
 };
+use smithay::reexports::wayland_protocols_misc::zwp_input_method_v2::client::zwp_input_method_keyboard_grab_v2::{self, ZwpInputMethodKeyboardGrabV2};
+use smithay::reexports::wayland_protocols_misc::zwp_input_method_v2::client::zwp_input_method_manager_v2::ZwpInputMethodManagerV2;
+use smithay::reexports::wayland_protocols_misc::zwp_input_method_v2::client::zwp_input_method_v2::ZwpInputMethodV2;
+use smithay::reexports::wayland_protocols_misc::zwp_virtual_keyboard_v1::client::zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1;
+use smithay::reexports::wayland_protocols_misc::zwp_virtual_keyboard_v1::client::zwp_virtual_keyboard_v1::ZwpVirtualKeyboardV1;
 use smithay::reexports::wayland_protocols_wlr::virtual_pointer::v1::client::zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1;
 use smithay::reexports::wayland_protocols_wlr::virtual_pointer::v1::client::zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1;
 use wayland_backend::client::Backend;
@@ -34,6 +41,7 @@ use wayland_client::protocol::wl_compositor::WlCompositor;
 use wayland_client::protocol::wl_display::WlDisplay;
 use wayland_client::protocol::wl_keyboard::{self, WlKeyboard};
 use wayland_client::protocol::wl_output::{self, WlOutput};
+use wayland_client::protocol::wl_pointer::{self, WlPointer};
 use wayland_client::protocol::wl_registry::{self, WlRegistry};
 use wayland_client::protocol::wl_seat::{self, WlSeat};
 use wayland_client::protocol::wl_surface::{self, WlSurface};
@@ -48,6 +56,9 @@ pub struct Client {
     pub qh: QueueHandle<State>,
     pub display: WlDisplay,
     pub state: State,
+    /// Whether the connection is expected to break (a protocol error, or a deliberate
+    /// disconnect), in which case dispatching just stops instead of panicking.
+    pub tolerate_disconnect: bool,
 }
 
 pub struct State {
@@ -62,6 +73,12 @@ pub struct State {
     pub xdg_wm_base: Option<XdgWmBase>,
     pub layer_shell: Option<ZwlrLayerShellV1>,
     pub virtual_pointer_manager: Option<ZwlrVirtualPointerManagerV1>,
+    pub virtual_keyboard_manager: Option<ZwpVirtualKeyboardManagerV1>,
+    pub input_method_manager: Option<ZwpInputMethodManagerV2>,
+    /// Key and modifiers events received through an input method keyboard grab.
+    pub input_method_grab_events: Vec<KeyboardEvent>,
+    /// Events received on the seat's wl_pointer, in order.
+    pub pointer_events: Vec<PointerEvent>,
     pub spbm: Option<WpSinglePixelBufferManagerV1>,
     pub viewporter: Option<WpViewporter>,
     pub ksim: Option<ZwpKeyboardShortcutsInhibitManagerV1>,
@@ -101,6 +118,7 @@ pub struct LayerSurface {
 #[derive(Debug, Default)]
 pub struct Seat {
     pub keyboard: Option<Keyboard>,
+    pub pointer: Option<WlPointer>,
 }
 
 #[derive(Debug)]
@@ -113,10 +131,16 @@ pub struct Surface {
 pub struct Keyboard {
     pub proxy: WlKeyboard,
     pub surface: Option<WlSurface>,
+    /// Every keymap received so far, as text.
+    pub keymaps: Vec<String>,
 }
 
 #[derive(Debug)]
 pub enum KeyboardEvent {
+    /// A keymap received while this surface had the keyboard focus, as text.
+    Keymap {
+        keymap: String,
+    },
     Enter {
         keys: Vec<u8>,
     },
@@ -131,6 +155,46 @@ pub enum KeyboardEvent {
         locked: u32,
         group: u32,
     },
+}
+
+#[derive(Debug)]
+pub enum PointerEvent {
+    Enter {
+        x: f64,
+        y: f64,
+    },
+    Leave,
+    Motion {
+        x: f64,
+        y: f64,
+    },
+    Button {
+        button: u32,
+        state: wl_pointer::ButtonState,
+    },
+    Axis {
+        axis: wl_pointer::Axis,
+        value: f64,
+    },
+    AxisSource {
+        source: wl_pointer::AxisSource,
+    },
+    AxisStop {
+        axis: wl_pointer::Axis,
+    },
+    AxisDiscrete {
+        axis: wl_pointer::Axis,
+        discrete: i32,
+    },
+    AxisValue120 {
+        axis: wl_pointer::Axis,
+        value120: i32,
+    },
+    AxisRelativeDirection {
+        axis: wl_pointer::Axis,
+        direction: wl_pointer::AxisRelativeDirection,
+    },
+    Frame,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -183,6 +247,9 @@ impl ClientId {
 impl fmt::Display for KeyboardEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            KeyboardEvent::Keymap { .. } => {
+                write!(f, "keymap")?;
+            }
             KeyboardEvent::Enter { keys } => {
                 write!(f, "enter: {keys:?}")?;
             }
@@ -212,6 +279,38 @@ impl fmt::Display for KeyboardEvent {
             }
         }
         Ok(())
+    }
+}
+
+impl fmt::Display for PointerEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            // The coordinates are left out so that tests not interested in them stay stable.
+            PointerEvent::Enter { .. } => write!(f, "enter"),
+            PointerEvent::Leave => write!(f, "leave"),
+            PointerEvent::Motion { x, y } => write!(f, "motion: {x}, {y}"),
+            PointerEvent::Button { button, state } => {
+                let action = match state {
+                    wl_pointer::ButtonState::Released => "released",
+                    wl_pointer::ButtonState::Pressed => "pressed",
+                    _ => unreachable!(),
+                };
+                write!(f, "button {action}: {button}")
+            }
+            PointerEvent::Axis { axis, value } => write!(f, "axis {axis:?}: {value}"),
+            PointerEvent::AxisSource { source } => write!(f, "axis source: {source:?}"),
+            PointerEvent::AxisStop { axis } => write!(f, "axis stop {axis:?}"),
+            PointerEvent::AxisDiscrete { axis, discrete } => {
+                write!(f, "axis discrete {axis:?}: {discrete}")
+            }
+            PointerEvent::AxisValue120 { axis, value120 } => {
+                write!(f, "axis value120 {axis:?}: {value120}")
+            }
+            PointerEvent::AxisRelativeDirection { axis, direction } => {
+                write!(f, "axis relative direction {axis:?}: {direction:?}")
+            }
+            PointerEvent::Frame => write!(f, "frame"),
+        }
     }
 }
 
@@ -262,6 +361,10 @@ impl Client {
             xdg_wm_base: None,
             layer_shell: None,
             virtual_pointer_manager: None,
+            virtual_keyboard_manager: None,
+            input_method_manager: None,
+            input_method_grab_events: Vec::new(),
+            pointer_events: Vec::new(),
             spbm: None,
             viewporter: None,
             ksim: None,
@@ -276,10 +379,17 @@ impl Client {
             qh,
             display,
             state,
+            tolerate_disconnect: false,
         }
     }
 
     pub fn dispatch(&mut self) {
+        if self.tolerate_disconnect {
+            // The connection may be gone; errors are expected and the fd stays readable.
+            let _ = self.event_loop.dispatch(Duration::ZERO, &mut self.state);
+            return;
+        }
+
         self.event_loop
             .dispatch(Duration::ZERO, &mut self.state)
             .unwrap();
@@ -287,6 +397,22 @@ impl Client {
         if let Some(error) = self.connection.protocol_error() {
             panic!("{error}");
         }
+    }
+
+    /// Breaks the connection to the compositor, like a client that died.
+    ///
+    /// The fixture keeps a duplicate of the socket fd for its event source, so merely dropping
+    /// the connection wouldn't hang it up on the compositor's side; shut it down instead. The
+    /// client must not be roundtripped afterwards.
+    pub fn disconnect(&mut self) {
+        self.tolerate_disconnect = true;
+        let fd = self
+            .connection
+            .backend()
+            .poll_fd()
+            .try_clone_to_owned()
+            .unwrap();
+        UnixStream::from(fd).shutdown(Shutdown::Both).unwrap();
     }
 
     pub fn send_sync(&self) -> Arc<SyncData> {
@@ -423,6 +549,10 @@ impl State {
     ) -> impl Iterator<Item = &KeyboardEvent> + '_ {
         let surface = self.surfaces.get_mut(surface).unwrap();
         surface.recent_keyboard_events()
+    }
+
+    pub fn recent_pointer_events(&mut self) -> Vec<PointerEvent> {
+        std::mem::take(&mut self.pointer_events)
     }
 
     pub fn inhibit_shortcuts(&self, surface: &WlSurface) -> ZwpKeyboardShortcutsInhibitorV1 {
@@ -634,6 +764,12 @@ impl Dispatch<WlRegistry, ()> for State {
                 } else if interface == ZwlrVirtualPointerManagerV1::interface().name {
                     let version = min(version, ZwlrVirtualPointerManagerV1::interface().version);
                     state.virtual_pointer_manager = Some(registry.bind(name, version, qh, ()));
+                } else if interface == ZwpVirtualKeyboardManagerV1::interface().name {
+                    let version = min(version, ZwpVirtualKeyboardManagerV1::interface().version);
+                    state.virtual_keyboard_manager = Some(registry.bind(name, version, qh, ()));
+                } else if interface == ZwpInputMethodManagerV2::interface().name {
+                    let version = min(version, ZwpInputMethodManagerV2::interface().version);
+                    state.input_method_manager = Some(registry.bind(name, version, qh, ()));
                 } else if interface == WpSinglePixelBufferManagerV1::interface().name {
                     let version = min(version, WpSinglePixelBufferManagerV1::interface().version);
                     state.spbm = Some(registry.bind(name, version, qh, ()));
@@ -712,12 +848,23 @@ impl Dispatch<WlSeat, ()> for State {
                         let keyboard = Keyboard {
                             proxy: seat.get_keyboard(qh, seat.clone()),
                             surface: None,
+                            keymaps: Vec::new(),
                         };
                         data.keyboard = Some(keyboard);
                     }
                 } else {
                     if let Some(keyboard) = data.keyboard.take() {
                         keyboard.proxy.release();
+                    }
+                }
+
+                if capabilities.contains(wl_seat::Capability::Pointer) {
+                    if data.pointer.is_none() {
+                        data.pointer = Some(seat.get_pointer(qh, seat.clone()));
+                    }
+                } else {
+                    if let Some(pointer) = data.pointer.take() {
+                        pointer.release();
                     }
                 }
             }
@@ -740,7 +887,24 @@ impl Dispatch<WlKeyboard, WlSeat> for State {
         let keyboard = seat.keyboard.as_mut().unwrap();
 
         match event {
-            wl_keyboard::Event::Keymap { .. } => (),
+            wl_keyboard::Event::Keymap { fd, size, .. } => {
+                let mut buf = vec![0; size as usize];
+                let file = std::fs::File::from(fd);
+                file.read_exact_at(&mut buf, 0).unwrap();
+                // Drop the NUL terminator.
+                let len = buf.iter().position(|b| *b == 0).unwrap_or(buf.len());
+                buf.truncate(len);
+                let keymap = String::from_utf8(buf).unwrap();
+
+                if let Some(surface) = &keyboard.surface {
+                    let event = KeyboardEvent::Keymap {
+                        keymap: keymap.clone(),
+                    };
+                    let surface = state.surfaces.get_mut(surface).unwrap();
+                    surface.keyboard_events_received.push(event);
+                }
+                keyboard.keymaps.push(keymap);
+            }
             wl_keyboard::Event::Enter { surface, keys, .. } => {
                 keyboard.surface = Some(surface.clone());
 
@@ -794,6 +958,72 @@ impl Dispatch<WlKeyboard, WlSeat> for State {
     }
 }
 
+impl Dispatch<WlPointer, WlSeat> for State {
+    fn event(
+        state: &mut Self,
+        _pointer: &WlPointer,
+        event: <WlPointer as wayland_client::Proxy>::Event,
+        _seat: &WlSeat,
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        let event = match event {
+            wl_pointer::Event::Enter {
+                surface_x,
+                surface_y,
+                ..
+            } => PointerEvent::Enter {
+                x: surface_x,
+                y: surface_y,
+            },
+            wl_pointer::Event::Leave { .. } => PointerEvent::Leave,
+            wl_pointer::Event::Motion {
+                surface_x,
+                surface_y,
+                ..
+            } => PointerEvent::Motion {
+                x: surface_x,
+                y: surface_y,
+            },
+            wl_pointer::Event::Button {
+                button,
+                state: button_state,
+                ..
+            } => PointerEvent::Button {
+                button,
+                state: button_state.into_result().unwrap(),
+            },
+            wl_pointer::Event::Axis { axis, value, .. } => PointerEvent::Axis {
+                axis: axis.into_result().unwrap(),
+                value,
+            },
+            wl_pointer::Event::AxisSource { axis_source } => PointerEvent::AxisSource {
+                source: axis_source.into_result().unwrap(),
+            },
+            wl_pointer::Event::AxisStop { axis, .. } => PointerEvent::AxisStop {
+                axis: axis.into_result().unwrap(),
+            },
+            wl_pointer::Event::AxisDiscrete { axis, discrete } => PointerEvent::AxisDiscrete {
+                axis: axis.into_result().unwrap(),
+                discrete,
+            },
+            wl_pointer::Event::AxisValue120 { axis, value120 } => PointerEvent::AxisValue120 {
+                axis: axis.into_result().unwrap(),
+                value120,
+            },
+            wl_pointer::Event::AxisRelativeDirection { axis, direction } => {
+                PointerEvent::AxisRelativeDirection {
+                    axis: axis.into_result().unwrap(),
+                    direction: direction.into_result().unwrap(),
+                }
+            }
+            wl_pointer::Event::Frame => PointerEvent::Frame,
+            _ => unreachable!(),
+        };
+        state.pointer_events.push(event);
+    }
+}
+
 impl Dispatch<WlCompositor, ()> for State {
     fn event(
         _state: &mut Self,
@@ -840,6 +1070,54 @@ impl Dispatch<ZwlrLayerShellV1, ()> for State {
 
 wayland_client::delegate_noop!(State: ZwlrVirtualPointerManagerV1);
 wayland_client::delegate_noop!(State: ZwlrVirtualPointerV1);
+wayland_client::delegate_noop!(State: ZwpVirtualKeyboardManagerV1);
+wayland_client::delegate_noop!(State: ZwpVirtualKeyboardV1);
+wayland_client::delegate_noop!(State: ZwpInputMethodManagerV2);
+wayland_client::delegate_noop!(State: ignore ZwpInputMethodV2);
+
+impl Dispatch<ZwpInputMethodKeyboardGrabV2, ()> for State {
+    fn event(
+        state: &mut Self,
+        _proxy: &ZwpInputMethodKeyboardGrabV2,
+        event: <ZwpInputMethodKeyboardGrabV2 as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        match event {
+            zwp_input_method_keyboard_grab_v2::Event::Keymap { .. } => (),
+            zwp_input_method_keyboard_grab_v2::Event::RepeatInfo { .. } => (),
+            zwp_input_method_keyboard_grab_v2::Event::Key {
+                key,
+                state: key_state,
+                ..
+            } => {
+                let key_state = key_state.into_result().unwrap();
+                state.input_method_grab_events.push(KeyboardEvent::Key {
+                    key,
+                    state: key_state,
+                });
+            }
+            zwp_input_method_keyboard_grab_v2::Event::Modifiers {
+                mods_depressed,
+                mods_latched,
+                mods_locked,
+                group,
+                ..
+            } => {
+                state
+                    .input_method_grab_events
+                    .push(KeyboardEvent::Modifiers {
+                        depressed: mods_depressed,
+                        latched: mods_latched,
+                        locked: mods_locked,
+                        group,
+                    });
+            }
+            _ => unreachable!(),
+        }
+    }
+}
 
 impl Dispatch<WlSurface, ()> for State {
     fn event(

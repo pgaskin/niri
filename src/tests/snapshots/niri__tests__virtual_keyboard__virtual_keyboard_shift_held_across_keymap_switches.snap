@@ -1,0 +1,27 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+virtual shift press
+app: keymap: virtual
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 42 (Shift_L)
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+physical key
+app: keymap: configured
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+app: key pressed: 16 (Q)
+app: key released: 16 (Q)
+virtual key
+app: keymap: virtual
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+app: key pressed: 21 (Z)
+app: key released: 21 (Z)
+virtual shift release
+app: key released: 42 (Shift_L)
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+physical key
+app: keymap: configured
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 16 (q)
+app: key released: 16 (q)

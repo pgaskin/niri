@@ -1,0 +1,15 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+physical press, forwarded by ime
+app: key pressed: 16
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+ime: key pressed: 16
+ime releases grab
+ime grabs again
+physical release
+ime: key released: 16
+ime forwards release
+app: key released: 16
+app: modifiers: depressed=0, latched=0, locked=0, group=0

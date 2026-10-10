@@ -1,0 +1,7 @@
+---
+source: src/tests/virtual_pointer.rs
+expression: rv
+---
+motion_absolute 25,50 of 100x100
+app: enter: 224, 254
+app: frame

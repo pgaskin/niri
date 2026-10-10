@@ -1,0 +1,8 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+virtual keyboard layout
+app: modifiers: depressed=0, latched=0, locked=0, group=1
+virtual keyboard destroyed
+app: modifiers: depressed=0, latched=0, locked=0, group=0

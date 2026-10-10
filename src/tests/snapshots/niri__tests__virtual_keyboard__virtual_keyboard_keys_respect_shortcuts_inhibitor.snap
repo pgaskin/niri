@@ -1,0 +1,9 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+virtual key
+inhibiting, virtual key
+app: key pressed: 16
+app: key released: 16
+not inhibiting, virtual key

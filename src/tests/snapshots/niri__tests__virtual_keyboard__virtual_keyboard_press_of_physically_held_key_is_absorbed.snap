@@ -1,0 +1,16 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+physical press
+app: key pressed: 16
+virtual press
+virtual release
+physical release
+app: key released: 16
+virtual press
+app: key pressed: 16
+physical press
+physical release
+virtual release
+app: key released: 16

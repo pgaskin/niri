@@ -1,0 +1,14 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+key with unchanged mask after press and release
+app: key pressed: 16
+app: key released: 16
+shift, key, with the mask echoed after each
+app: key pressed: 42
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+app: key pressed: 16
+app: key released: 16
+app: key released: 42
+app: modifiers: depressed=0, latched=0, locked=0, group=0

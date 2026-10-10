@@ -1,0 +1,16 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+shared keymap: shift mask, key, mask cleared
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+app: key pressed: 16 (Q)
+app: key released: 16 (Q)
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+own keymap: shift mask, key, mask cleared
+app: keymap: virtual
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+app: key pressed: 21 (Z)
+app: key released: 21 (Z)
+app: modifiers: depressed=0, latched=0, locked=0, group=0

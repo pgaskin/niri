@@ -1,0 +1,10 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+physical num lock
+app: key pressed: 69
+app: modifiers: depressed=16, latched=0, locked=16, group=0
+app: key released: 69
+app: modifiers: depressed=0, latched=0, locked=16, group=0
+virtual keyboard echoed and destroyed
