@@ -1,0 +1,13 @@
+---
+source: src/tests/virtual_pointer.rs
+expression: rv
+---
+motion inside
+app: enter: 84, 84
+app: frame
+motion beyond extent: pointer at 1920, 1080
+app: leave
+app: frame
+motion inside
+app: enter: 84, 84
+app: frame

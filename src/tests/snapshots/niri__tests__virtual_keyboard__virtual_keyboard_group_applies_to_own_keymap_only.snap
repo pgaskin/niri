@@ -1,0 +1,28 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+virtual group 1, key
+app: keymap: virtual
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: modifiers: depressed=0, latched=0, locked=0, group=1
+app: key pressed: 16 (Cyrillic_shorti)
+app: key released: 16 (Cyrillic_shorti)
+physical key
+app: keymap: configured
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 21 (y)
+app: key released: 21 (y)
+user switches layout
+app: modifiers: depressed=0, latched=0, locked=0, group=1
+virtual group 0, key
+app: keymap: virtual
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 16 (a)
+app: key released: 16 (a)
+physical key
+app: keymap: configured
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: modifiers: depressed=0, latched=0, locked=0, group=1
+app: key pressed: 21 (z)
+app: key released: 21 (z)

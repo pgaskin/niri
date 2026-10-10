@@ -1,0 +1,17 @@
+---
+source: src/tests/virtual_pointer.rs
+expression: rv
+---
+virtual pointer click on first window
+first: enter: 400, 300
+first: frame
+first: button pressed: 272
+first: frame
+first: button released: 272
+first: frame
+first: enter: []
+first: modifiers: depressed=0, latched=0, locked=0, group=0
+second: leave
+virtual key
+first: key pressed: 16
+first: key released: 16

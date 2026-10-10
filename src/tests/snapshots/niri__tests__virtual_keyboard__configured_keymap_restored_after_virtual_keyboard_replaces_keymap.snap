@@ -1,0 +1,24 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+virtual key
+app: keymap: first
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 21 (z)
+app: key released: 21 (z)
+keymap replaced, virtual keyboard destroyed
+app: keymap: configured
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+virtual key, keymap replaced, virtual key
+app: keymap: first
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 21 (z)
+app: key released: 21 (z)
+app: keymap: second
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 21 (y)
+app: key released: 21 (y)
+virtual keyboard destroyed
+app: keymap: configured
+app: modifiers: depressed=0, latched=0, locked=0, group=0

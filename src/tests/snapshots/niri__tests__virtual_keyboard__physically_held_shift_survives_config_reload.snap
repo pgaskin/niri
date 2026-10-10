@@ -1,0 +1,16 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+physical shift press
+app: key pressed: 42 (Shift_L)
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+config reload
+app: keymap: reloaded
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+physical key
+app: key pressed: 16 (A)
+app: key released: 16 (A)
+physical shift release
+app: key released: 42 (Shift_L)
+app: modifiers: depressed=0, latched=0, locked=0, group=0

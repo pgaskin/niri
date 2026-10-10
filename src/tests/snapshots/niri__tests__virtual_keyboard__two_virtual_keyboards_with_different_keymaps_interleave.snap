@@ -1,0 +1,40 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+physical num lock
+app: key pressed: 69 (Num_Lock)
+app: modifiers: depressed=16, latched=0, locked=16, group=0
+app: key released: 69 (Num_Lock)
+app: modifiers: depressed=0, latched=0, locked=16, group=0
+a key
+app: keymap: a
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 21 (z)
+app: key released: 21 (z)
+b key
+app: keymap: b
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 16 (a)
+app: key released: 16 (a)
+a key
+app: keymap: a
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 21 (z)
+app: key released: 21 (z)
+physical key
+app: keymap: configured
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: modifiers: depressed=0, latched=0, locked=16, group=0
+app: key pressed: 21 (y)
+app: key released: 21 (y)
+b key
+app: keymap: b
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: key pressed: 16 (a)
+app: key released: 16 (a)
+a destroyed
+b destroyed
+app: keymap: configured
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+app: modifiers: depressed=0, latched=0, locked=16, group=0

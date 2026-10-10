@@ -1,0 +1,10 @@
+---
+source: src/tests/virtual_pointer.rs
+expression: rv
+---
+motion_absolute 25,50 of 100x100 on headless-2
+app: enter: 304, 344
+app: frame
+motion_absolute 25,50 of 100x100 on the layout
+app: leave
+app: frame

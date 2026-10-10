@@ -1,0 +1,11 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+virtual key state 2, twice
+app: key pressed: 16
+virtual key state 0
+app: key released: 16
+virtual key state 2, virtual keyboard destroyed
+app: key pressed: 16
+app: key released: 16

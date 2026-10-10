@@ -1,0 +1,17 @@
+---
+source: src/tests/virtual_pointer.rs
+expression: rv
+---
+motion
+app: enter: 84, 84
+app: frame
+wheel notch without frame
+frame
+app: axis source: Wheel
+app: axis value120 VerticalScroll: 120
+app: axis relative direction VerticalScroll: Identical
+app: axis VerticalScroll: 15
+app: frame
+axis_stop, frame
+app: axis source: Wheel
+app: frame

@@ -1,0 +1,12 @@
+---
+source: src/tests/virtual_pointer.rs
+expression: rv
+---
+virtual pointer button press
+app: enter
+app: frame
+app: button pressed: 272
+app: frame
+virtual pointer destroyed
+app: button released: 272
+app: frame

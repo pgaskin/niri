@@ -1,0 +1,21 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+user switches layout
+app: modifiers: depressed=0, latched=0, locked=0, group=1
+physical key
+app: key pressed: 21 (z)
+app: key released: 21 (z)
+virtual key, modifiers with group 0
+app: key pressed: 21 (z)
+app: key released: 21 (z)
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+physical key
+app: key pressed: 21 (y)
+app: key released: 21 (y)
+virtual keyboard destroyed
+app: modifiers: depressed=0, latched=0, locked=0, group=1
+physical key
+app: key pressed: 21 (z)
+app: key released: 21 (z)

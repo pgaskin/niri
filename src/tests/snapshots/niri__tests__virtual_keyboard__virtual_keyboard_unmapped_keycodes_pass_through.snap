@@ -1,0 +1,10 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+virtual key 600
+app: key pressed: 600
+app: key released: 600
+virtual key 240
+app: key pressed: 240
+app: key released: 240

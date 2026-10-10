@@ -1,0 +1,19 @@
+---
+source: src/tests/virtual_keyboard.rs
+expression: rv
+---
+physical shift press, forwarded by ime
+app: key pressed: 42
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+ime: key pressed: 42
+ime: modifiers: depressed=1, latched=0, locked=0, group=0
+ime synthesizes key
+app: key pressed: 17
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+app: key released: 17
+app: modifiers: depressed=1, latched=0, locked=0, group=0
+physical shift release, forwarded by ime
+app: key released: 42
+app: modifiers: depressed=0, latched=0, locked=0, group=0
+ime: key released: 42
+ime: modifiers: depressed=0, latched=0, locked=0, group=0
