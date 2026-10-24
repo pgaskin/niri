@@ -47,7 +47,7 @@ use smithay::desktop::{
     find_popup_root_surface, layer_map_for_output, LayerMap, LayerSurface, PopupGrab, PopupManager,
     PopupUngrabStrategy, Space, Window, WindowSurfaceType,
 };
-use smithay::input::keyboard::{Layout as KeyboardLayout, LedState, XkbConfig};
+use smithay::input::keyboard::{KeyboardSource, Layout as KeyboardLayout, LedState, XkbConfig};
 use smithay::input::pointer::{
     CursorIcon, CursorImageStatus, CursorImageSurfaceData, Focus,
     GrabStartData as PointerGrabStartData, MotionEvent,
@@ -355,8 +355,8 @@ pub struct Niri {
     pub single_pixel_buffer_state: SinglePixelBufferState,
 
     pub seat: Seat<State>,
-    /// Scancodes of the keys to suppress.
-    pub suppressed_keys: HashSet<Keycode>,
+    /// Scancodes of the keys to suppress, per keyboard source.
+    pub suppressed_keys: HashSet<(KeyboardSource, Keycode)>,
     /// Button codes of the mouse buttons to suppress.
     pub suppressed_buttons: HashSet<u32>,
     pub bind_cooldown_timers: HashMap<Key, RegistrationToken>,

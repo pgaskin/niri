@@ -548,7 +548,7 @@ impl State {
                     }
 
                     // Don't send this press to any clients.
-                    this.niri.suppressed_keys.insert(key_code);
+                    this.niri.suppressed_keys.insert((source, key_code));
                     return FilterResult::Intercept(None);
                 }
 
@@ -557,7 +557,7 @@ impl State {
                 if this.niri.window_mru_ui.is_open() && !pressed && modifiers.is_empty() {
                     this.do_action(Action::MruConfirm, false);
 
-                    if this.niri.suppressed_keys.remove(&key_code) {
+                    if this.niri.suppressed_keys.remove(&(source, key_code)) {
                         return FilterResult::Intercept(None);
                     } else {
                         return FilterResult::Forward;
@@ -572,7 +572,7 @@ impl State {
                         .unwrap_or(false)
                     {
                         pointer.unset_grab(this, serial, time);
-                        this.niri.suppressed_keys.insert(key_code);
+                        this.niri.suppressed_keys.insert((source, key_code));
                         return FilterResult::Intercept(None);
                     }
                 }
@@ -589,6 +589,7 @@ impl State {
                     should_intercept_key(
                         &mut this.niri.suppressed_keys,
                         bindings,
+                        source,
                         mod_key,
                         key_code,
                         modified,
@@ -606,7 +607,7 @@ impl State {
                     if this.niri.keyboard_focus.is_overview() && pressed {
                         if let Some(bind) = raw.and_then(|raw| hardcoded_overview_bind(raw, *mods))
                         {
-                            this.niri.suppressed_keys.insert(key_code);
+                            this.niri.suppressed_keys.insert((source, key_code));
                             return FilterResult::Intercept(Some(bind));
                         }
                     }
@@ -4599,8 +4600,9 @@ impl State {
 /// to them from being delivered.
 #[allow(clippy::too_many_arguments)]
 fn should_intercept_key<'a>(
-    suppressed_keys: &mut HashSet<Keycode>,
+    suppressed_keys: &mut HashSet<(KeyboardSource, Keycode)>,
     bindings: impl IntoIterator<Item = &'a Bind>,
+    source: KeyboardSource,
     mod_key: ModKey,
     key_code: Keycode,
     modified: Keysym,
@@ -4614,7 +4616,7 @@ fn should_intercept_key<'a>(
     // Actions are only triggered on presses, release of the key
     // shouldn't try to intercept anything unless we have marked
     // the key to suppress.
-    if !pressed && !suppressed_keys.contains(&key_code) {
+    if !pressed && !suppressed_keys.contains(&(source, key_code)) {
         return FilterResult::Forward;
     }
 
@@ -4665,7 +4667,7 @@ fn should_intercept_key<'a>(
             if is_inhibiting_shortcuts && bind.allow_inhibiting {
                 FilterResult::Forward
             } else {
-                suppressed_keys.insert(key_code);
+                suppressed_keys.insert((source, key_code));
                 FilterResult::Intercept(Some(bind))
             }
         }
@@ -4675,7 +4677,7 @@ fn should_intercept_key<'a>(
             // But we don't need to check for shortcuts inhibition here, because
             // if it was inhibited on press (forwarded to the client), it wouldn't be suppressed,
             // so the release would already have been forwarded at the start of this function.
-            suppressed_keys.remove(&key_code);
+            suppressed_keys.remove(&(source, key_code));
             FilterResult::Intercept(None)
         }
         (None, true) => FilterResult::Forward,
